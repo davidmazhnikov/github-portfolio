@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Verse Clock — auto book picker</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding: 28px; max-width:700px; margin:auto; background:#faf9f7; color:#222; }
+    .card { border-radius:12px; padding:20px; box-shadow:0 4px 18px rgba(0,0,0,.08); background:white; }
+    h1 { margin:0 0 8px 0; font-size:22px; }
+    #verse { margin-top:14px; font-size:18px; line-height:1.4; }
+    small { color:#666; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Verse Clock</h1>
+    <div id="timeNow"><small>loading time…</small></div>
+    <div id="verse"><em>loading verse…</em></div>
+    <div id="ref" style="margin-top:8px;color:#444;"></div>
+  </div>
+
+<script>
+// --- fallback quotes ---
+const fallbackQuotes = [
+  "Be still and know that I am God. — Psalm 46:10",
+  "Do not be anxious about anything. — Philippians 4:6",
+  "The Lord is my shepherd. — Psalm 23:1",
+  "Trust in the Lord with all your heart. — Proverbs 3:5",
+  "I can do all this through Him who gives me strength. — Philippians 4:13",
+  "Let all that you do be done in love. — 1 Corinthians 16:14",
+  "You are the light of the world. — Matthew 5:14"
+];
+
+// --- book data: number of chapters, and estimated verse count per chapter ---
+const bibleBooks = {
+  Genesis: 50, Exodus: 40, Leviticus: 27, Numbers: 36, Deuteronomy: 34,
+  Joshua: 24, Judges: 21, Ruth: 4, "1 Samuel": 31, "2 Samuel": 24,
+  "1 Kings": 22, "2 Kings": 25, "1 Chronicles": 29, "2 Chronicles": 36,
+  Ezra: 10, Nehemiah: 13, Esther: 10, Job: 42, Psalms: 150, Proverbs: 31,
+  Ecclesiastes: 12, Isaiah: 66, Jeremiah: 52, Lamentations: 5, Ezekiel: 48,
+  Daniel: 12, Hosea: 14, Joel: 3, Amos: 9, Obadiah: 1, Jonah: 4, Micah: 7,
+  Nahum: 3, Habakkuk: 3, Zephaniah: 3, Haggai: 2, Zechariah: 14, Malachi: 4,
+  Matthew: 28, Mark: 16, Luke: 24, John: 21, Acts: 28, Romans: 16,
+  "1 Corinthians": 16, "2 Corinthians": 13, Galatians: 6, Ephesians: 6,
+  Philippians: 4, Colossians: 4, "1 Thessalonians": 5, "2 Thessalonians": 3,
+  "1 Timothy": 6, "2 Timothy": 4, Titus: 3, Philemon: 1, Hebrews: 13,
+  James: 5, "1 Peter": 5, "2 Peter": 3, "1 John": 5, "2 John": 1,
+  "3 John": 1, Jude: 1, Revelation: 22
+};
+
+// --- average verses per chapter (rough estimate; we only need a cap) ---
+const avgVerses = 35;
+
+// --- main function ---
+async function showVerse() {
+  const now = new Date();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+
+  const displayTime = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  document.getElementById('timeNow').innerHTML = `<small>Local time: ${displayTime}</small>`;
+
+  const chapter = Math.max(1, hour);
+  const verseNum = Math.max(1, minute);
+
+  // find a book that has at least 'chapter' chapters
+  const possibleBooks = Object.entries(bibleBooks)
+    .filter(([book, chCount]) => chCount >= chapter)
+    .map(([book]) => book);
+
+  let selectedBook = null;
+  let verseText = "";
+  let refText = "";
+
+  if (possibleBooks.length > 0) {
+    // pick one randomly among those that fit
+    selectedBook = possibleBooks[Math.floor(Math.random() * possibleBooks.length)];
+    const q = encodeURIComponent(`${selectedBook} ${chapter}:${verseNum}`);
+    const url = `https://bible-api.com/${q}`;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.text) {
+          verseText = `<strong>${data.reference}</strong><br>${data.text.replace(/\n/g,'<br>')}`;
+          refText = data.reference;
+        }
+      }
+    } catch {}
+  }
+
+  if (!verseText) {
+    const fallback = fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
+    verseText = `<em>No direct verse for ${chapter}:${verseNum} at this time.</em><br>${fallback}`;
+    refText = "— inspirational quote —";
+  }
+
+  document.getElementById('verse').innerHTML = verseText;
+  document.getElementById('ref').textContent = refText;
+}
+
+// --- initial load and refresh every 60s ---
+showVerse();
+setInterval(showVerse, 60_000);
+</script>
+</body>
+</html>
